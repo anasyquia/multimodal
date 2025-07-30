@@ -15,6 +15,8 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+import chromadb
+from chromadb.config import Settings
 
 import cohere
 
@@ -289,11 +291,23 @@ class RAGSystem:
         # Setup vector store
         if not setup_vector_store():
             st.stop()
+        
+        # Initialize with older ChromaDB version compatibility
+        try:
+            client = chromadb.Client(Settings(
+                is_persistent=True,
+                persist_directory="./chroma_db",
+                anonymized_telemetry=False
+            ))
             
-        self.vectorstore = Chroma(
-            embedding_function=self.embeddings,
-            persist_directory="./chroma_db"
-        )
+            self.vectorstore = Chroma(
+                embedding_function=self.embeddings,
+                client=client,
+                collection_name="langchain"
+            )
+        except Exception as e:
+            st.error(f"❌ Error initializing vector store: {str(e)}")
+            st.stop()
             
         self.reranker = DocumentReranker()
         self.validator = ResponseValidator()
