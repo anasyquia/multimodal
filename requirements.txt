@@ -4,7 +4,7 @@ langchain-openai>=0.0.5
 langchain-community>=0.0.15
 openai>=1.12.0
 cohere>=4.46
-chromadb==0.3.29
+faiss-cpu>=1.7.4
 pandas>=2.0.0
 numpy>=1.24.0
 beautifulsoup4>=4.12.0

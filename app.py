@@ -4,8 +4,7 @@ import json
 import warnings
 import streamlit as st
 from typing import Dict, Any, List
-import zipfile
-import shutil
+import pickle
 
 import pandas as pd
 import numpy as np
@@ -14,9 +13,7 @@ from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-import chromadb
-from chromadb.config import Settings
+from langchain_community.vectorstores import FAISS
 
 import cohere
 
@@ -253,64 +250,41 @@ class ResponseValidator:
                 "error": f"Validation failed: {str(e)}"
             }
 
-def setup_vector_store():
-    """Setup the vector store from zip file if needed"""
-    # Check if chroma_db directory exists
-    if os.path.exists("./chroma_db"):
-        return True
-        
-    # Check if zip file exists
-    if not os.path.exists("chroma_db.zip"):
+def load_vector_store():
+    """Load the vector store from pickle file"""
+    # Check if pickle file exists
+    if not os.path.exists("vectorstore.pkl"):
         st.error("""
         ⚠️ Vector store data not found. This is a deployment issue.
         
         Please contact the administrator to properly set up the vector store data.
         """)
-        return False
+        return None
         
     try:
-        # Clean up any partial extractions
-        if os.path.exists("./chroma_db"):
-            shutil.rmtree("./chroma_db")
-            
-        # Extract the zip file
-        with zipfile.ZipFile("chroma_db.zip", 'r') as zip_ref:
-            zip_ref.extractall(".")
-            
-        return True
-        
+        with open("vectorstore.pkl", "rb") as f:
+            return pickle.load(f)
     except Exception as e:
-        st.error(f"⚠️ Error setting up vector store: {str(e)}")
-        return False
+        st.error(f"⚠️ Error loading vector store: {str(e)}")
+        return None
 
 class RAGSystem:
     def __init__(self):
         # Initialize components
         self.embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
         
-        # Setup vector store
-        if not setup_vector_store():
-            st.stop()
-        
-        # Initialize with older ChromaDB version compatibility
+        # Load vector store
         try:
-            client = chromadb.Client(Settings(
-                is_persistent=True,
-                persist_directory="./chroma_db",
-                anonymized_telemetry=False
-            ))
-            
-            self.vectorstore = Chroma(
-                embedding_function=self.embeddings,
-                client=client,
-                collection_name="langchain"
-            )
+            self.vectorstore = FAISS.load_local("vectorstore", self.embeddings)
         except Exception as e:
-            st.error(f"❌ Error initializing vector store: {str(e)}")
+            st.error("""
+            ⚠️ Vector store data not found. This is a deployment issue.
+            
+            Please contact the administrator to properly set up the vector store data.
+            """)
             st.stop()
             
         self.reranker = DocumentReranker()
-        self.validator = ResponseValidator()
         self.llm = ChatOpenAI(
             model=CHAT_MODEL,
             temperature=TEMPERATURE
@@ -359,7 +333,7 @@ Complete and accurate answer:"""
         sources = []
         for i, doc in enumerate(source_docs, 1):
             title = doc.metadata.get('title', 'Unknown Source')
-            url = doc.metadata.get('source', 'No URL')
+            source = doc.metadata.get('source', 'No URL')
             rerank_score = doc.metadata.get('rerank_score', 'N/A')
             
             content_preview = (
@@ -369,8 +343,7 @@ Complete and accurate answer:"""
             )
             
             sources.append(f"[{i}] {title}")
-            sources.append(f"    Relevance Score: {rerank_score}")
-            sources.append(f"    Source: {url}")
+            sources.append(f"    Source: {source}")
             sources.append(f"    Preview: {content_preview}\n")
         
         return "\n".join(sources)
@@ -387,13 +360,6 @@ Complete and accurate answer:"""
             answer = result.get("result", "")
             source_docs = result.get("source_documents", [])
             
-            # Prepare context for validation
-            contexts = [doc.page_content for doc in source_docs]
-            combined_context = " ".join(contexts)
-            
-            # Validate response
-            validation = self.validator.validate_response(answer, combined_context)
-            
             # Format sources
             sources_summary = self.format_sources(source_docs)
             
@@ -403,7 +369,6 @@ Complete and accurate answer:"""
                 "question": question,
                 "answer": answer,
                 "sources": sources_summary,
-                "validation": validation,
                 "source_docs": source_docs,
                 "success": True,
                 "response_time": response_time
@@ -414,7 +379,6 @@ Complete and accurate answer:"""
                 "question": question,
                 "answer": f"I apologize, but I encountered an error processing your question. Please try again or contact support if the issue persists.",
                 "sources": None,
-                "validation": None,
                 "source_docs": None,
                 "success": False,
                 "error": str(e),
