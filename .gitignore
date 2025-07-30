@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.pyc
+.env
+chroma_db/
+*.ipynb
+scraped_ms_ads_data_v3.json
+scraping_analysis_v3.png
+scraping_stats_v3.json
+vector_store_analysis_v3.png
+Class project-1 Midterm Project-1.pdf 

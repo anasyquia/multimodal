@@ -379,6 +379,14 @@ def main():
     # Title and description
     st.title("🎓 UChicago MS in Applied Data Science Program Assistant")
     
+    # Evaluation notice
+    st.info("""
+    ⏳ **Evaluation Version**
+    
+    This is a temporary deployment for DSI staff evaluation. The system uses the latest program materials 
+    to provide accurate information about the MS in Applied Data Science program.
+    """)
+    
     # API Key Management
     with st.sidebar:
         st.header("API Key Configuration")
