@@ -401,14 +401,22 @@ def main():
     # API Key Management
     with st.sidebar:
         st.header("API Key Configuration")
+        st.markdown("""
+        To use this assistant, you'll need:
+        1. An [OpenAI API key](https://platform.openai.com/api-keys)
+        2. A [Cohere API key](https://dashboard.cohere.com/api-keys)
+        
+        Your keys are only used for this session and are not stored.
+        """)
+        
         openai_key = st.text_input("OpenAI API Key", type="password", key="openai_key")
         cohere_key = st.text_input("Cohere API Key", type="password", key="cohere_key")
         
         if not openai_key or not cohere_key:
-            st.warning("⚠️ Please enter both API keys to use the assistant.")
+            st.warning("⚠️ Please enter your API keys to use the assistant.")
             return
         
-        # Set API keys
+        # Set API keys for this session
         os.environ["OPENAI_API_KEY"] = openai_key
         os.environ["COHERE_API_KEY"] = cohere_key
     
