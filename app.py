@@ -4,6 +4,8 @@ import json
 import warnings
 import streamlit as st
 from typing import Dict, Any, List
+import zipfile
+import shutil
 
 import pandas as pd
 import numpy as np
@@ -249,24 +251,49 @@ class ResponseValidator:
                 "error": f"Validation failed: {str(e)}"
             }
 
+def setup_vector_store():
+    """Setup the vector store from zip file if needed"""
+    # Check if chroma_db directory exists
+    if os.path.exists("./chroma_db"):
+        return True
+        
+    # Check if zip file exists
+    if not os.path.exists("chroma_db.zip"):
+        st.error("""
+        ⚠️ Vector store data not found. This is a deployment issue.
+        
+        Please contact the administrator to properly set up the vector store data.
+        """)
+        return False
+        
+    try:
+        # Clean up any partial extractions
+        if os.path.exists("./chroma_db"):
+            shutil.rmtree("./chroma_db")
+            
+        # Extract the zip file
+        with zipfile.ZipFile("chroma_db.zip", 'r') as zip_ref:
+            zip_ref.extractall(".")
+            
+        return True
+        
+    except Exception as e:
+        st.error(f"⚠️ Error setting up vector store: {str(e)}")
+        return False
+
 class RAGSystem:
     def __init__(self):
         # Initialize components
         self.embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
         
-        # Check if vector store exists
-        if os.path.exists("./chroma_db"):
-            self.vectorstore = Chroma(
-                embedding_function=self.embeddings,
-                persist_directory="./chroma_db"
-            )
-        else:
-            st.error("""
-            ⚠️ Vector store data not found. This is a deployment issue.
-            
-            Please contact the administrator to properly set up the vector store data.
-            """)
+        # Setup vector store
+        if not setup_vector_store():
             st.stop()
+            
+        self.vectorstore = Chroma(
+            embedding_function=self.embeddings,
+            persist_directory="./chroma_db"
+        )
             
         self.reranker = DocumentReranker()
         self.validator = ResponseValidator()
