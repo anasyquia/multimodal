@@ -253,10 +253,21 @@ class RAGSystem:
     def __init__(self):
         # Initialize components
         self.embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
-        self.vectorstore = Chroma(
-            embedding_function=self.embeddings,
-            persist_directory="./chroma_db"
-        )
+        
+        # Check if vector store exists
+        if os.path.exists("./chroma_db"):
+            self.vectorstore = Chroma(
+                embedding_function=self.embeddings,
+                persist_directory="./chroma_db"
+            )
+        else:
+            st.error("""
+            ⚠️ Vector store data not found. This is a deployment issue.
+            
+            Please contact the administrator to properly set up the vector store data.
+            """)
+            st.stop()
+            
         self.reranker = DocumentReranker()
         self.validator = ResponseValidator()
         self.llm = ChatOpenAI(
