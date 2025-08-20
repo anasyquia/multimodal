@@ -17,6 +17,42 @@ st.set_page_config(
 # Apply CSS
 st.markdown(Config.get_css_styles(), unsafe_allow_html=True)
 
+def calculate_semantic_similarity(query: str, product_names: list, rag_system) -> float:
+    """
+    Calculate semantic similarity between query and retrieved products using CLIP embeddings.
+    Returns average similarity score between 0.0 and 1.0.
+    """
+    import numpy as np
+    try:
+        # Encode the query
+        query_embedding = rag_system._encode_text_query(query)
+        
+        # Encode product names
+        similarities = []
+        for product_name in product_names:
+            if product_name and str(product_name).strip():
+                product_embedding = rag_system._encode_text_query(str(product_name))
+                
+                # Calculate cosine similarity
+                dot_product = np.dot(query_embedding, product_embedding)
+                norm_query = np.linalg.norm(query_embedding)
+                norm_product = np.linalg.norm(product_embedding)
+                
+                if norm_query > 0 and norm_product > 0:
+                    similarity = dot_product / (norm_query * norm_product)
+                    # Convert from [-1, 1] to [0, 1] range
+                    similarity = (similarity + 1) / 2
+                    similarities.append(similarity)
+        
+        if similarities:
+            return np.mean(similarities)
+        else:
+            return 0.0
+            
+    except Exception as e:
+        print(f"Error calculating semantic similarity: {e}")
+        return 0.0
+
 def calculate_answer_relevance(question: str, answer: str) -> float:
     """
     Calculate relevance score between a question and its answer.
@@ -783,19 +819,19 @@ if st.session_state.get('data_loaded', False):
                         
                         try:
                             # Get search results
-                            answer, sources, _ = rag.answer_text_question(test_case['query'])
+                            answer, sources, product_data = rag.answer_text_question(test_case['query'])
                             
-                            # 1. Retrieval Accuracy: Check if retrieved products contain expected keywords
+                            # 1. Semantic Retrieval Accuracy: Use CLIP embeddings to measure similarity
                             retrieval_accuracy = 0
-                            if sources:
-                                relevant_sources = 0
-                                for source in sources[:5]:  # Top 5 results
-                                    source_lower = source.lower()
-                                    keyword_matches = sum(1 for keyword in test_case['expected_keywords'] 
-                                                        if keyword in source_lower)
-                                    if keyword_matches >= 2:  # At least 2 keywords match
-                                        relevant_sources += 1
-                                retrieval_accuracy = relevant_sources / min(len(sources), 5)
+                            if product_data:
+                                # Extract product names from retrieved results
+                                product_names = [product.get('name', '') for product in product_data[:5]]
+                                # Calculate semantic similarity using CLIP embeddings
+                                retrieval_accuracy = calculate_semantic_similarity(
+                                    test_case['query'], 
+                                    product_names, 
+                                    rag
+                                )
                             
                             retrieval_scores.append(retrieval_accuracy)
                             
@@ -871,9 +907,9 @@ if st.session_state.get('data_loaded', False):
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric(
-                    "Retrieval Accuracy", 
+                    "Semantic Retrieval Accuracy", 
                     f"{results['retrieval_accuracy']:.1%}",
-                    help="Percentage of retrieved results that are relevant to the query"
+                    help="CLIP embedding similarity between query and retrieved products"
                 )
             with col2:
                 st.metric(
