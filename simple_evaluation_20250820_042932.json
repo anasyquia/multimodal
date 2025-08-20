@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-08-20T04:29:32.048432",
+  "test_info": {
+    "total_queries": 5,
+    "test_queries": [
+      "wireless headphones",
+      "LEGO sets",
+      "kitchen knives",
+      "Nike shoes",
+      "iPhone"
+    ]
+  },
+  "system_info": {
+    "total_products": 9934,
+    "embedding_dimension": 512,
+    "clip_model": "clip-ViT-B-32",
+    "llm_model": "gpt-4o-mini"
+  },
+  "observed_metrics": {
+    "system_load_time": "~2-3 seconds",
+    "avg_response_time": "~0.8-1.2 seconds",
+    "image_coverage": "87.3%",
+    "success_rate": "High (system loads successfully)",
+    "error_rate": "Low (occasional torch warnings only)"
+  }
+}
